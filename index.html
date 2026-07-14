@@ -117,6 +117,30 @@
   .field.jog label span.val{color:var(--jog);}
   .field.walk label span.val{color:var(--walk);}
 
+  select#voiceSelect{
+    width:100%;
+    background:#1e2a40;
+    color:var(--ink);
+    border:none;
+    border-radius:12px;
+    padding:12px 14px;
+    font-size:15px;
+    margin-bottom:10px;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+  .test-voice-btn{
+    width:100%;
+    padding:12px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--prep);
+    font-weight:700;
+    font-size:14px;
+  }
+  .test-voice-btn:active{ transform:scale(0.98); }
+
   .toggle-row{
     display:flex;
     align-items:center;
@@ -337,15 +361,32 @@
       </div>
     </div>
 
+    <div class="field">
+      <label>Voice volume <span class="val" id="voiceVolVal">100%</span></label>
+      <div class="stepper">
+        <button type="button" data-adj="voiceVol" data-dir="-1">–</button>
+        <input type="range" id="voiceVolRange" min="10" max="100" step="5" value="100">
+        <button type="button" data-adj="voiceVol" data-dir="1">+</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Voice</label>
+      <select id="voiceSelect"></select>
+      <button type="button" class="test-voice-btn" id="testVoiceBtn">Test voice</button>
+    </div>
+
     <div class="summary" id="summary"></div>
 
     <button class="start-btn" id="startBtn">Start</button>
 
     <p class="note">
-      Voice cues announce every phase and count you in for the last 5 seconds, so you don't need to watch the screen — keep your music playing in the background. Screen can lock; the timer keeps running and will catch you up on unlock.
+      Voice cues announce every phase and count you in for the last 5 seconds, so you don't need to watch the screen — keep your music playing in the background. While a session is running you'll see a quiet "Jog / Walk Timer" media notification; that's what keeps the voice working with your screen locked, without ever forcing your screen to stay on. Note: 100% here is the maximum volume the browser allows for spoken cues — if it's still hard to hear over your music, raising your phone's overall media volume will have more effect than anything the app can do.
     </p>
   </div>
 </div>
+
+<audio id="keepAlive" loop preload="auto" playsinline style="display:none"></audio>
 
 <div class="run" id="runScreen">
   <div class="phase-pill prep" id="phasePill">Get Ready</div>
@@ -368,10 +409,15 @@
 <script>
 (function(){
   const $ = id => document.getElementById(id);
+  const KEEPALIVE_SRC = 'data:audio/wav;base64,UklGRmQfAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAfAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIB/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f4CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgH9/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f3+AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIB/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f4CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgH9/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f3+AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIB/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f4CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgH9/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f3+AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIB/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f3+AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgH9/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f3+AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIB/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f4CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgH9/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f3+AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIB/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f3+AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgH9/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f3+AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIB/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f4CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/fw==';
+
 
   const jogRange = $('jogRange'), walkRange = $('walkRange'), repRange = $('repRange'), prepRange = $('prepRange'), warmupRange = $('warmupRange');
   const jogVal = $('jogVal'), walkVal = $('walkVal'), repVal = $('repVal'), prepVal = $('prepVal'), warmupVal = $('warmupVal');
   const skipLastWalk = $('skipLastWalk');
+  const voiceVolRange = $('voiceVolRange'), voiceVolVal = $('voiceVolVal');
+  const voiceSelect = $('voiceSelect');
+  const testVoiceBtn = $('testVoiceBtn');
   const summary = $('summary');
   const setupWrap = $('setupWrap');
   const runScreen = $('runScreen');
@@ -383,6 +429,7 @@
   const nextUp = $('nextUp');
   const progressFill = $('progressFill');
   const repLabel = $('repLabel');
+  const keepAliveAudio = $('keepAlive');
 
   function fmtTime(s){
     s = Math.max(0, Math.round(s));
@@ -406,6 +453,7 @@
 
   // ---------------- Settings persistence ----------------
   const STORAGE_KEY = 'jogwalk-settings-v1';
+  let savedVoiceName = null;
   function saveSettings(){
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -414,7 +462,9 @@
         rep: repRange.value,
         prep: prepRange.value,
         warmup: warmupRange.value,
-        skipLastWalk: skipLastWalk.checked
+        skipLastWalk: skipLastWalk.checked,
+        voiceVol: voiceVolRange.value,
+        voiceName: voiceSelect.value || savedVoiceName || null
       }));
     }catch(e){}
   }
@@ -429,6 +479,8 @@
       if (s.prep != null) prepRange.value = s.prep;
       if (s.warmup != null) warmupRange.value = s.warmup;
       if (s.skipLastWalk != null) skipLastWalk.checked = s.skipLastWalk;
+      if (s.voiceVol != null) voiceVolRange.value = s.voiceVol;
+      if (s.voiceName) savedVoiceName = s.voiceName;
     }catch(e){}
   }
 
@@ -438,6 +490,7 @@
     repVal.textContent = repRange.value;
     prepVal.textContent = prepRange.value + 's';
     warmupVal.textContent = (+warmupRange.value === 0) ? 'Off' : fmtShort(+warmupRange.value);
+    voiceVolVal.textContent = voiceVolRange.value + '%';
 
     const jog = +jogRange.value, walk = +walkRange.value, reps = +repRange.value, warmup = +warmupRange.value;
     let total = reps*jog + reps*walk + warmup;
@@ -448,7 +501,7 @@
 
   loadSettings();
 
-  [jogRange,walkRange,repRange,prepRange,warmupRange,skipLastWalk].forEach(el=>{
+  [jogRange,walkRange,repRange,prepRange,warmupRange,voiceVolRange,skipLastWalk].forEach(el=>{
     el.addEventListener('input', updateSetupLabels);
     el.addEventListener('change', updateSetupLabels);
   });
@@ -456,7 +509,7 @@
   document.querySelectorAll('.stepper button').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const which = btn.dataset.adj, dir = +btn.dataset.dir;
-      const map = {jog:jogRange, walk:walkRange, rep:repRange, prep:prepRange, warmup:warmupRange};
+      const map = {jog:jogRange, walk:walkRange, rep:repRange, prep:prepRange, warmup:warmupRange, voiceVol:voiceVolRange};
       const el = map[which];
       const step = +el.step || 1;
       let v = +el.value + dir*step;
@@ -471,22 +524,53 @@
   // ---------------- Voice ----------------
   let voiceReady = false;
   let chosenVoice = null;
+  let voiceListPopulated = false;
 
-  function pickVoice(){
-    if (!('speechSynthesis' in window)) return;
-    const voices = window.speechSynthesis.getVoices();
-    if (!voices || !voices.length) return;
-    // Preference order: exact Google UK English Female, then any UK English female-sounding voice, then any en-GB, then default
-    chosenVoice =
-      voices.find(v => v.name === 'Google UK English Female') ||
-      voices.find(v => /UK English Female/i.test(v.name)) ||
-      voices.find(v => v.lang === 'en-GB' && /female/i.test(v.name)) ||
-      voices.find(v => v.lang === 'en-GB') ||
-      null;
+  function currentVolume(){
+    return Math.min(1, Math.max(0, (+voiceVolRange.value || 100) / 100));
   }
+
+  function populateVoiceList(){
+    if (!('speechSynthesis' in window)) return;
+    const voices = window.speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
+    if (!voices.length) return;
+
+    // Order: preferred UK female first, then other en-GB, then everything else, alphabetically within group
+    const score = v => {
+      if (v.name === 'Google UK English Female') return 0;
+      if (/UK English Female/i.test(v.name)) return 1;
+      if (v.lang === 'en-GB') return 2;
+      return 3;
+    };
+    voices.sort((a,b)=> score(a)-score(b) || a.name.localeCompare(b.name));
+
+    voiceSelect.innerHTML = '';
+    voices.forEach(v=>{
+      const opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = v.name + ' (' + v.lang + ')';
+      voiceSelect.appendChild(opt);
+    });
+
+    // Restore saved choice if it still exists on this device, else fall back to best default
+    const wanted = savedVoiceName && voices.find(v=>v.name===savedVoiceName);
+    const fallback = voices.find(v=>v.name==='Google UK English Female') || voices[0];
+    const pick = wanted || fallback;
+    voiceSelect.value = pick.name;
+    chosenVoice = pick;
+    voiceListPopulated = true;
+  }
+
+  voiceSelect.addEventListener('change', ()=>{
+    const voices = window.speechSynthesis.getVoices();
+    chosenVoice = voices.find(v=>v.name===voiceSelect.value) || chosenVoice;
+    savedVoiceName = voiceSelect.value;
+    saveSettings();
+  });
+
   if ('speechSynthesis' in window){
-    pickVoice();
-    window.speechSynthesis.addEventListener('voiceschanged', pickVoice);
+    populateVoiceList();
+    window.speechSynthesis.addEventListener('voiceschanged', populateVoiceList);
   }
 
   function speak(text){
@@ -499,7 +583,7 @@
         try{
           const u = new SpeechSynthesisUtterance(text);
           u.rate = 1.02;
-          u.volume = 1;
+          u.volume = currentVolume(); // 1.0 is the hard ceiling the browser allows
           if (chosenVoice) u.voice = chosenVoice;
           window.speechSynthesis.speak(u);
         }catch(e){}
@@ -510,11 +594,49 @@
   function primeVoice(){
     if (voiceReady) return;
     voiceReady = true;
-    pickVoice();
+    if (!voiceListPopulated) populateVoiceList();
     try{
       const u = new SpeechSynthesisUtterance(' ');
       u.volume = 0;
       window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+
+  testVoiceBtn.addEventListener('click', ()=>{
+    primeVoice();
+    speak('Jog now. This is your voice and volume test.');
+  });
+
+  // ---------------- Background keep-alive ----------------
+  // Installed PWAs get suspended by Android when the screen locks, which also
+  // kills setInterval and speechSynthesis. Playing a quiet looping audio track
+  // gives the page an active media session, which Android/Chrome exempts from
+  // that suspension - this is what keeps the voice cues working screen-off.
+  function startKeepAlive(){
+    try{
+      keepAliveAudio.src = KEEPALIVE_SRC;
+      keepAliveAudio.loop = true;
+      keepAliveAudio.volume = 0.15;
+      const p = keepAliveAudio.play();
+      if (p && p.catch) p.catch(()=>{});
+      if ('mediaSession' in navigator){
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: 'Jog / Walk Timer',
+          artist: 'Session in progress',
+          album: 'Voice cues running in the background'
+        });
+        navigator.mediaSession.playbackState = 'playing';
+        navigator.mediaSession.setActionHandler('play', ()=>{});
+        navigator.mediaSession.setActionHandler('pause', ()=>{});
+      }
+    }catch(e){}
+  }
+  function stopKeepAlive(){
+    try{
+      keepAliveAudio.pause();
+      keepAliveAudio.removeAttribute('src');
+      keepAliveAudio.load();
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
     }catch(e){}
   }
 
@@ -677,6 +799,7 @@
     lastAnnouncedSegIndex = -1;
     setupWrap.classList.add('hidden');
     runScreen.classList.add('active');
+    startKeepAlive();
     goToSegment(0);
     startTicking();
     paused = false;
@@ -685,6 +808,7 @@
 
   function endWorkout(){
     stopTicking();
+    stopKeepAlive();
     window.speechSynthesis && window.speechSynthesis.cancel();
     runScreen.classList.remove('active');
     setupWrap.classList.remove('hidden');
@@ -716,8 +840,12 @@
 
   // Recalculate correctly on resume from background (visibility change)
   document.addEventListener('visibilitychange', ()=>{
-    if (document.visibilityState === 'visible' && runScreen.classList.contains('active') && !paused){
-      tick();
+    if (document.visibilityState === 'visible' && runScreen.classList.contains('active')){
+      if (!paused && keepAliveAudio.paused && keepAliveAudio.src){
+        const p = keepAliveAudio.play();
+        if (p && p.catch) p.catch(()=>{});
+      }
+      if (!paused) tick();
     }
   });
 
