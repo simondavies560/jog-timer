@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Jog/Walk Timer</title>
+<meta name="theme-color" content="#0e1420">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%233ddc97%22/><text x=%2250%22 y=%2268%22 font-size=%2260%22 text-anchor=%22middle%22 fill=%22%230e1420%22>▶</text></svg>">
+<style>
+  :root{
+    --bg:#0e1420;
+    --panel:#161f30;
+    --ink:#eef2f7;
+    --dim:#7c8aa3;
+    --jog:#3ddc97;
+    --walk:#ffb454;
+    --prep:#5b8def;
+    --done:#c792ea;
+    --line:#233049;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height:100vh;
+    padding:env(safe-area-inset-top) 18px env(safe-area-inset-bottom);
+    overflow-x:hidden;
+  }
+  header{
+    width:100%;
+    max-width:480px;
+    padding:22px 0 6px;
+    text-align:center;
+  }
+  header h1{
+    font-size:15px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--dim);
+    font-weight:700;
+    margin:0;
+  }
+
+  /* ---------- SETUP SCREEN ---------- */
+  .setup{
+    width:100%;
+    max-width:480px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    margin-top:8px;
+  }
+  .field{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:14px 16px;
+  }
+  .field label{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    font-size:13px;
+    color:var(--dim);
+    font-weight:600;
+    letter-spacing:.02em;
+    margin-bottom:10px;
+  }
+  .field label span.val{
+    font-size:20px;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+    font-weight:700;
+  }
+  .stepper{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .stepper button{
+    flex:0 0 auto;
+    width:44px;
+    height:44px;
+    border-radius:12px;
+    border:none;
+    background:#1e2a40;
+    color:var(--ink);
+    font-size:20px;
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .stepper button:active{ background:#28385500; transform:scale(0.94); }
+  .stepper input[type=range]{
+    flex:1 1 auto;
+    -webkit-appearance:none;
+    appearance:none;
+    height:6px;
+    border-radius:4px;
+    background:var(--line);
+    outline:none;
+  }
+  .stepper input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:22px;height:22px;border-radius:50%;
+    background:var(--jog);
+    border:3px solid #0e1420;
+  }
+  .field.jog label span.val{color:var(--jog);}
+  .field.walk label span.val{color:var(--walk);}
+
+  .toggle-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:14px 16px;
+    font-size:13px;
+    color:var(--dim);
+    font-weight:600;
+  }
+  .switch{
+    position:relative; width:46px; height:28px; border-radius:20px;
+    background:#1e2a40; flex:0 0 auto;
+  }
+  .switch input{ position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;}
+  .switch .knob{
+    position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%;
+    background:var(--dim); transition:transform .18s ease, background .18s ease;
+  }
+  .switch input:checked + .knob{ transform:translateX(18px); background:var(--jog);}
+
+  .summary{
+    text-align:center;
+    color:var(--dim);
+    font-size:13px;
+    padding:4px 4px 2px;
+  }
+
+  .start-btn{
+    margin-top:6px;
+    width:100%;
+    padding:18px;
+    border:none;
+    border-radius:18px;
+    background:var(--jog);
+    color:#0e1420;
+    font-size:18px;
+    font-weight:800;
+    letter-spacing:.02em;
+  }
+  .start-btn:active{ transform:scale(0.98); }
+
+  .note{
+    max-width:480px;
+    text-align:center;
+    color:var(--dim);
+    font-size:12px;
+    line-height:1.5;
+    margin-top:14px;
+    padding-bottom:10px;
+  }
+
+  /* ---------- RUN SCREEN ---------- */
+  .run{
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+    max-width:480px;
+    flex:1;
+    padding:10px 0 24px;
+    min-height:80vh;
+  }
+  .run.active{ display:flex; }
+  .setup-wrap.hidden{ display:none; }
+
+  .phase-pill{
+    padding:8px 22px;
+    border-radius:999px;
+    font-size:14px;
+    font-weight:800;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    background:var(--panel);
+    border:1px solid var(--line);
+    margin-top:10px;
+  }
+  .phase-pill.jog{ color:var(--jog); border-color:var(--jog); }
+  .phase-pill.walk{ color:var(--walk); border-color:var(--walk); }
+  .phase-pill.prep{ color:var(--prep); border-color:var(--prep); }
+  .phase-pill.done{ color:var(--done); border-color:var(--done); }
+
+  .big-timer{
+    font-size:min(28vw,150px);
+    font-weight:800;
+    font-variant-numeric:tabular-nums;
+    line-height:1;
+    margin:26px 0 6px;
+    transition:color .2s ease;
+  }
+  .big-timer.jog{ color:var(--jog); }
+  .big-timer.walk{ color:var(--walk); }
+  .big-timer.prep{ color:var(--prep); }
+  .big-timer.done{ color:var(--done); }
+
+  .next-up{
+    color:var(--dim);
+    font-size:15px;
+    min-height:20px;
+    text-align:center;
+  }
+  .next-up b{ color:var(--ink); }
+
+  .progress-wrap{
+    width:100%;
+    margin-top:22px;
+  }
+  .progress-track{
+    width:100%;
+    height:8px;
+    border-radius:6px;
+    background:var(--panel);
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    width:0%;
+    background:currentColor;
+    border-radius:6px;
+    transition:width 1s linear;
+  }
+  .rep-label{
+    text-align:center;
+    color:var(--dim);
+    font-size:13px;
+    margin-top:10px;
+    letter-spacing:.04em;
+  }
+
+  .run-controls{
+    display:flex;
+    gap:12px;
+    width:100%;
+    margin-top:auto;
+    padding-top:26px;
+  }
+  .run-controls button{
+    flex:1;
+    padding:16px;
+    border-radius:16px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--ink);
+    font-size:15px;
+    font-weight:700;
+  }
+  .run-controls button.stop{ color:#ff6b6b; border-color:#3a2430; }
+  .run-controls button:active{ transform:scale(0.97); }
+
+  .sound-flag{
+    display:flex; align-items:center; gap:6px;
+    color:var(--dim); font-size:12px; margin-top:14px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Jog / Walk Timer</h1>
+</header>
+
+<div class="setup-wrap" id="setupWrap">
+  <div class="setup">
+
+    <div class="field jog">
+      <label>Jog time <span class="val" id="jogVal">60s</span></label>
+      <div class="stepper">
+        <button type="button" data-adj="jog" data-dir="-1">–</button>
+        <input type="range" id="jogRange" min="10" max="600" step="5" value="60">
+        <button type="button" data-adj="jog" data-dir="1">+</button>
+      </div>
+    </div>
+
+    <div class="field walk">
+      <label>Walk time <span class="val" id="walkVal">2 min</span></label>
+      <div class="stepper">
+        <button type="button" data-adj="walk" data-dir="-1">–</button>
+        <input type="range" id="walkRange" min="10" max="600" step="5" value="120">
+        <button type="button" data-adj="walk" data-dir="1">+</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Repeats <span class="val" id="repVal">8</span></label>
+      <div class="stepper">
+        <button type="button" data-adj="rep" data-dir="-1">–</button>
+        <input type="range" id="repRange" min="1" max="30" step="1" value="8">
+        <button type="button" data-adj="rep" data-dir="1">+</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Get-ready time <span class="val" id="prepVal">10s</span></label>
+      <div class="stepper">
+        <button type="button" data-adj="prep" data-dir="-1">–</button>
+        <input type="range" id="prepRange" min="3" max="30" step="1" value="10">
+        <button type="button" data-adj="prep" data-dir="1">+</button>
+      </div>
+    </div>
+
+    <div class="field walk">
+      <label>Warm-up walk <span class="val" id="warmupVal">30s</span></label>
+      <div class="stepper">
+        <button type="button" data-adj="warmup" data-dir="-1">–</button>
+        <input type="range" id="warmupRange" min="0" max="300" step="5" value="30">
+        <button type="button" data-adj="warmup" data-dir="1">+</button>
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <span>End on final jog<br><span style="font-weight:400;font-size:11px;">Skip the last walk break</span></span>
+      <div class="switch">
+        <input type="checkbox" id="skipLastWalk" checked>
+        <span class="knob"></span>
+      </div>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <button class="start-btn" id="startBtn">Start</button>
+
+    <p class="note">
+      Voice cues announce every phase and count you in for the last 5 seconds, so you don't need to watch the screen — keep your music playing in the background. Screen can lock; the timer keeps running and will catch you up on unlock.
+    </p>
+  </div>
+</div>
+
+<div class="run" id="runScreen">
+  <div class="phase-pill prep" id="phasePill">Get Ready</div>
+  <div class="big-timer prep" id="bigTimer">10</div>
+  <div class="next-up" id="nextUp">&nbsp;</div>
+
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="rep-label" id="repLabel">Rep 1 of 8</div>
+  </div>
+
+  <div class="sound-flag" id="soundFlag">🔊 Voice cues on</div>
+
+  <div class="run-controls">
+    <button id="pauseBtn">Pause</button>
+    <button class="stop" id="stopBtn">End</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+
+  const jogRange = $('jogRange'), walkRange = $('walkRange'), repRange = $('repRange'), prepRange = $('prepRange'), warmupRange = $('warmupRange');
+  const jogVal = $('jogVal'), walkVal = $('walkVal'), repVal = $('repVal'), prepVal = $('prepVal'), warmupVal = $('warmupVal');
+  const skipLastWalk = $('skipLastWalk');
+  const summary = $('summary');
+  const setupWrap = $('setupWrap');
+  const runScreen = $('runScreen');
+  const startBtn = $('startBtn');
+  const pauseBtn = $('pauseBtn');
+  const stopBtn = $('stopBtn');
+  const phasePill = $('phasePill');
+  const bigTimer = $('bigTimer');
+  const nextUp = $('nextUp');
+  const progressFill = $('progressFill');
+  const repLabel = $('repLabel');
+
+  function fmtTime(s){
+    s = Math.max(0, Math.round(s));
+    const m = Math.floor(s/60), r = s%60;
+    return m > 0 ? (m + ':' + String(r).padStart(2,'0')) : String(r);
+  }
+  function fmtShort(s){
+    if (s % 60 === 0 && s >= 60) return (s/60) + ' min';
+    if (s < 60) return s + 's';
+    return Math.floor(s/60) + 'm ' + (s%60) + 's';
+  }
+  // Full-word duration for speech, e.g. "30 seconds", "1 minute", "1 minute 30 seconds"
+  function fmtSpoken(s){
+    s = Math.round(s);
+    const m = Math.floor(s/60), r = s%60;
+    const parts = [];
+    if (m > 0) parts.push(m + ' ' + (m === 1 ? 'minute' : 'minutes'));
+    if (r > 0 || m === 0) parts.push(r + ' ' + (r === 1 ? 'second' : 'seconds'));
+    return parts.join(' ');
+  }
+
+  // ---------------- Settings persistence ----------------
+  const STORAGE_KEY = 'jogwalk-settings-v1';
+  function saveSettings(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        jog: jogRange.value,
+        walk: walkRange.value,
+        rep: repRange.value,
+        prep: prepRange.value,
+        warmup: warmupRange.value,
+        skipLastWalk: skipLastWalk.checked
+      }));
+    }catch(e){}
+  }
+  function loadSettings(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (s.jog != null) jogRange.value = s.jog;
+      if (s.walk != null) walkRange.value = s.walk;
+      if (s.rep != null) repRange.value = s.rep;
+      if (s.prep != null) prepRange.value = s.prep;
+      if (s.warmup != null) warmupRange.value = s.warmup;
+      if (s.skipLastWalk != null) skipLastWalk.checked = s.skipLastWalk;
+    }catch(e){}
+  }
+
+  function updateSetupLabels(){
+    jogVal.textContent = fmtShort(+jogRange.value);
+    walkVal.textContent = fmtShort(+walkRange.value);
+    repVal.textContent = repRange.value;
+    prepVal.textContent = prepRange.value + 's';
+    warmupVal.textContent = (+warmupRange.value === 0) ? 'Off' : fmtShort(+warmupRange.value);
+
+    const jog = +jogRange.value, walk = +walkRange.value, reps = +repRange.value, warmup = +warmupRange.value;
+    let total = reps*jog + reps*walk + warmup;
+    if (skipLastWalk.checked) total -= walk;
+    summary.textContent = reps + ' rounds · total run time ≈ ' + fmtShort(total);
+    saveSettings();
+  }
+
+  loadSettings();
+
+  [jogRange,walkRange,repRange,prepRange,warmupRange,skipLastWalk].forEach(el=>{
+    el.addEventListener('input', updateSetupLabels);
+    el.addEventListener('change', updateSetupLabels);
+  });
+
+  document.querySelectorAll('.stepper button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const which = btn.dataset.adj, dir = +btn.dataset.dir;
+      const map = {jog:jogRange, walk:walkRange, rep:repRange, prep:prepRange, warmup:warmupRange};
+      const el = map[which];
+      const step = +el.step || 1;
+      let v = +el.value + dir*step;
+      v = Math.min(+el.max, Math.max(+el.min, v));
+      el.value = v;
+      updateSetupLabels();
+    });
+  });
+
+  updateSetupLabels();
+
+  // ---------------- Voice ----------------
+  let voiceReady = false;
+  let chosenVoice = null;
+
+  function pickVoice(){
+    if (!('speechSynthesis' in window)) return;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || !voices.length) return;
+    // Preference order: exact Google UK English Female, then any UK English female-sounding voice, then any en-GB, then default
+    chosenVoice =
+      voices.find(v => v.name === 'Google UK English Female') ||
+      voices.find(v => /UK English Female/i.test(v.name)) ||
+      voices.find(v => v.lang === 'en-GB' && /female/i.test(v.name)) ||
+      voices.find(v => v.lang === 'en-GB') ||
+      null;
+  }
+  if ('speechSynthesis' in window){
+    pickVoice();
+    window.speechSynthesis.addEventListener('voiceschanged', pickVoice);
+  }
+
+  function speak(text){
+    if (!('speechSynthesis' in window)) return;
+    try{
+      window.speechSynthesis.cancel();
+      // A tiny delay after cancel() avoids a known Chrome/Android bug where the
+      // next utterance's opening word gets clipped or dropped entirely.
+      setTimeout(()=>{
+        try{
+          const u = new SpeechSynthesisUtterance(text);
+          u.rate = 1.02;
+          u.volume = 1;
+          if (chosenVoice) u.voice = chosenVoice;
+          window.speechSynthesis.speak(u);
+        }catch(e){}
+      }, 80);
+    }catch(e){}
+  }
+  // Unlocking speech synth on iOS requires a call within a user gesture.
+  function primeVoice(){
+    if (voiceReady) return;
+    voiceReady = true;
+    pickVoice();
+    try{
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+
+  // ---------------- Schedule building ----------------
+  // Each segment: {type: 'prep'|'jog'|'walk'|'done', duration (s), repIndex, repTotal}
+  let schedule = [];
+  let segIndex = 0;
+  let segEndAt = 0;      // epoch ms when current segment ends
+  let segDuration = 0;   // seconds
+  let paused = false;
+  let pauseRemaining = 0;
+  let tickHandle = null;
+  let lastSpokenSecond = null;
+  let lastAnnouncedSegIndex = -1;
+
+  function buildSchedule(){
+    const jog = +jogRange.value, walk = +walkRange.value, reps = +repRange.value, prep = +prepRange.value, warmup = +warmupRange.value;
+    const seg = [];
+    seg.push({type:'prep', duration:prep});
+    if (warmup > 0){
+      seg.push({type:'warmup', duration:warmup});
+    }
+    for (let i=1;i<=reps;i++){
+      seg.push({type:'jog', duration:jog, repIndex:i, repTotal:reps});
+      const isLast = (i === reps);
+      if (!(isLast && skipLastWalk.checked)){
+        seg.push({type:'walk', duration:walk, repIndex:i, repTotal:reps});
+      }
+    }
+    seg.push({type:'done', duration:0});
+    return seg;
+  }
+
+  function phaseLabel(type){
+    return type==='prep' ? 'Get Ready' : type==='warmup' ? 'Warm-up Walk' : type==='jog' ? 'Jog' : type==='walk' ? 'Walk' : 'Done';
+  }
+  function phaseSpokenName(type){
+    return type==='jog' ? 'Jog' : type==='walk' ? 'Walk' : type==='warmup' ? 'Warm up walk' : type==='done' ? 'Workout complete' : 'Get ready';
+  }
+  function phaseSpokenVerb(type){
+    return type==='jog' ? 'jogging' : (type==='walk' || type==='warmup') ? 'walking' : '';
+  }
+
+  function setPillAndTimerClass(type){
+    const cls = type==='prep' ? 'prep' : (type==='jog') ? 'jog' : (type==='walk' || type==='warmup') ? 'walk' : 'done';
+    phasePill.className = 'phase-pill ' + cls;
+    bigTimer.className = 'big-timer ' + cls;
+  }
+
+  function describeNext(idx){
+    for (let i=idx+1;i<schedule.length;i++){
+      const s = schedule[i];
+      if (s.type==='done') return 'Then: finish';
+      return 'Then: ' + phaseLabel(s.type) + ' for ' + fmtShort(s.duration);
+    }
+    return '';
+  }
+
+  function renderStatic(){
+    const seg = schedule[segIndex];
+    phasePill.textContent = phaseLabel(seg.type);
+    setPillAndTimerClass(seg.type);
+    if (seg.type === 'done'){
+      bigTimer.textContent = '✓';
+      nextUp.textContent = 'Nice work.';
+      repLabel.textContent = 'Complete';
+      progressFill.style.width = '100%';
+      return;
+    }
+    nextUp.textContent = describeNext(segIndex);
+    if (seg.type === 'jog' || seg.type === 'walk'){
+      repLabel.textContent = 'Round ' + seg.repIndex + ' of ' + seg.repTotal;
+    } else if (seg.type === 'warmup'){
+      repLabel.textContent = 'Before round 1';
+    } else {
+      repLabel.textContent = 'Starting soon';
+    }
+  }
+
+  function announceSegmentStart(seg){
+    if (seg.type === 'done'){
+      speak('Workout complete. Nice work.');
+      return;
+    }
+    if (seg.type === 'prep'){
+      speak('Get ready. Starting in ' + fmtSpoken(seg.duration) + '.');
+    } else {
+      const verb = phaseSpokenVerb(seg.type);
+      speak(phaseSpokenName(seg.type) + ' now. ' + fmtSpoken(seg.duration) + ' of ' + verb + '.');
+    }
+  }
+
+  function goToSegment(idx){
+    segIndex = idx;
+    lastSpokenSecond = null;
+    if (idx >= schedule.length){
+      idx = schedule.length - 1;
+      segIndex = idx;
+    }
+    const seg = schedule[segIndex];
+    segDuration = seg.duration;
+    segEndAt = Date.now() + seg.duration*1000;
+    renderStatic();
+    if (lastAnnouncedSegIndex !== segIndex){
+      announceSegmentStart(seg);
+      lastAnnouncedSegIndex = segIndex;
+    }
+    if (seg.type === 'done'){
+      stopTicking();
+      progressFill.style.width = '100%';
+    }
+  }
+
+  function tick(){
+    if (paused) return;
+    const seg = schedule[segIndex];
+    if (seg.type === 'done') return;
+
+    let remaining = (segEndAt - Date.now())/1000;
+
+    // Catch up if we've been backgrounded past this (and possibly more) segments
+    while (remaining <= 0 && schedule[segIndex].type !== 'done'){
+      const nextIdx = segIndex+1;
+      if (nextIdx >= schedule.length) break;
+      goToSegment(nextIdx);
+      remaining = (segEndAt - Date.now())/1000;
+    }
+
+    if (schedule[segIndex].type === 'done') return;
+
+    const secLeft = Math.ceil(remaining);
+    bigTimer.textContent = fmtTime(remaining);
+
+    // countdown speech for last 5 seconds of jog/walk/prep
+    if (secLeft <= 5 && secLeft >= 1 && secLeft !== lastSpokenSecond){
+      lastSpokenSecond = secLeft;
+      speak(String(secLeft));
+    }
+
+    // progress bar (based on elapsed within segment)
+    const elapsedFrac = segDuration > 0 ? 1 - Math.max(0,remaining)/segDuration : 1;
+    progressFill.style.width = (elapsedFrac*100).toFixed(1) + '%';
+
+    if (remaining <= 0){
+      goToSegment(segIndex+1);
+    }
+  }
+
+  function startTicking(){
+    stopTicking();
+    tickHandle = setInterval(tick, 200);
+  }
+  function stopTicking(){
+    if (tickHandle){ clearInterval(tickHandle); tickHandle = null; }
+  }
+
+  function startWorkout(){
+    schedule = buildSchedule();
+    segIndex = -1;
+    lastAnnouncedSegIndex = -1;
+    setupWrap.classList.add('hidden');
+    runScreen.classList.add('active');
+    goToSegment(0);
+    startTicking();
+    paused = false;
+    pauseBtn.textContent = 'Pause';
+  }
+
+  function endWorkout(){
+    stopTicking();
+    window.speechSynthesis && window.speechSynthesis.cancel();
+    runScreen.classList.remove('active');
+    setupWrap.classList.remove('hidden');
+  }
+
+  startBtn.addEventListener('click', ()=>{
+    primeVoice();
+    startWorkout();
+  });
+
+  pauseBtn.addEventListener('click', ()=>{
+    if (!paused){
+      paused = true;
+      pauseRemaining = segEndAt - Date.now();
+      pauseBtn.textContent = 'Resume';
+      window.speechSynthesis && window.speechSynthesis.cancel();
+      speak('Paused');
+    } else {
+      paused = false;
+      segEndAt = Date.now() + pauseRemaining;
+      pauseBtn.textContent = 'Pause';
+      speak('Resumed');
+    }
+  });
+
+  stopBtn.addEventListener('click', ()=>{
+    if (confirm('End this session?')) endWorkout();
+  });
+
+  // Recalculate correctly on resume from background (visibility change)
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.visibilityState === 'visible' && runScreen.classList.contains('active') && !paused){
+      tick();
+    }
+  });
+
+  // Register service worker for installability / offline use
+  if ('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    });
+  }
+})();
+</script>
+</body>
+</html>
